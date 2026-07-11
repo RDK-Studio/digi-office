@@ -16,9 +16,10 @@ each backed by the Claude API.
 - `config/agents.local.json` — **your real roster** (gitignored — never committed). Copy the template here and fill in real values.
 - `src/agents/agentConfig.js` — loads your real agent roster from `agents.local.json`
 - `src/agents/syncAgents.js` — makes sure every agent in your config also exists as a row in the database (needed for the `tasks` table's foreign key to work)
-- `src/agents/mainAssistant.js` — classifies a request and decides which department it belongs to
+- `src/agents/mainAssistant.js` — classifies a request and decides which worker(s) it needs — a single request can be routed to more than one worker
 - `src/agents/researcher.js` — searches for and scores gig leads using Claude's built-in web search tool
-- `src/index.js` — the CLI entry point that runs the full loop
+- `src/agents/sideHustlePlanner.js` — brainstorms side-hustle ideas in two buckets (skill-matched and skill-independent/trending) and writes a plan for the best one
+- `src/index.js` — the CLI entry point that runs the full loop, including a manual approval gate before any task is marked done
 
 ## Setup (run this on your own machine)
  
@@ -45,11 +46,11 @@ each backed by the Claude API.
    (or with no argument, it defaults to a generic request)
  
 ## What happens when you run it
- 
-1. The Main Assistant (`claude-opus-4-8`) reads your request and decides which department it belongs to.
-2. A task is written to the database, assigned to the Research worker.
-3. The Research worker (`claude-haiku-4-5-20251001`) uses Claude's built-in web search tool to find real gig leads matching your configured skills, and scores each one.
-4. The task is marked done in the database, and the leads print to your terminal.
+
+1. The Main Assistant (`claude-opus-4-8`) reads your request and decides which worker(s) it needs — a single request can be split across more than one worker (e.g. "find me gigs and also brainstorm side hustles" routes to both researchers).
+2. For each worker involved: a task is written to the database, the worker runs (using Claude's built-in web search tool where relevant), and its output prints to your terminal.
+3. **Nothing is marked done automatically.** You're asked `Approve this result? (y/n)` after each worker's output — approving marks the task `done`, declining marks it `rejected`. Both outcomes stay in the database for reference.
+4. If a request needs multiple workers, this repeats once per worker in sequence.
 
 ## Why these choices
  
@@ -59,3 +60,4 @@ each backed by the Claude API.
 - **Template vs. `agents.local.json`**: the repo is public (portfolio-visible), so the *structure* of an agent definition is worth showing, but your *real* skills, prompts, and roster shouldn't be. This split lets anyone (including future-you on a new machine) see the expected shape without exposing personal data.
 - **`department` is just a data value**, not baked into the database structure — adding or renaming departments (Research, Dev Support, Trading, or anything else later) never requires a schema change.
 - **Claude's built-in web search tool** instead of a third-party search API: it runs server-side (Anthropic executes the search, not your code), so there's no separate account, API key, or scraping logic to maintain.
+- **Manual approval gate on every task**: even though Research-department work doesn't spend money or send anything externally, requiring a `y`/`n` review builds the habit early — this becomes essential once Trading and any auto-execution capability get built later.

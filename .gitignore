@@ -1,5 +1,31 @@
-node_modules/
-.env
-*.db
-*.db-journal
-config/agents.local.json
+# ── Backend (Node.js) ──────────────────────────────
+backend/node_modules/
+backend/.env
+backend/*.db
+backend/*.db-journal
+backend/config/agents.local.json
+
+# ── Unity ──────────────────────────────────────────
+unity/Library/
+unity/Temp/
+unity/Obj/
+unity/Build/
+unity/Builds/
+unity/Logs/
+unity/UserSettings/
+unity/MemoryCaptures/
+unity/.vs/
+unity/.vsconfig
+*.csproj
+*.sln
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+crashlytics-build.propertiesS

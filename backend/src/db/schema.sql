@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   assigned_to   TEXT REFERENCES agents(id),
   title         TEXT NOT NULL,
   description   TEXT,
-  status        TEXT NOT NULL DEFAULT 'backlog',  -- 'backlog' | 'assigned' | 'in-progress' | 'awaiting-approval' | 'done' | 'error'
+  status        TEXT NOT NULL DEFAULT 'backlog',  -- 'backlog' | 'assigned' | 'in-progress' | 'awaiting-approval' | 'done' | 'rejected' | 'error'
   priority      TEXT NOT NULL DEFAULT 'normal',   -- 'low' | 'normal' | 'high'
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
