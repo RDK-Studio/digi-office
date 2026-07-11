@@ -24,6 +24,7 @@
       "department": "research",
       "role": "worker",
       "model_tier": "claude-haiku-4-5-20251001",
+      "skills": ["EXAMPLE-skill-1", "EXAMPLE-skill-2"],
       "system_prompt": "You search for freelance/gig leads matching the following skills: [EXAMPLE — replace with real skills in agents.local.json]. Score each lead for fit before reporting it."
     }
   ]
