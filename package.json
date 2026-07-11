@@ -1,0 +1,16 @@
+{
+  "name": "digi-office-backend",
+  "version": "0.1.0",
+  "description": "Backend agent logic for Digi-Office — Manager, Department Managers, and worker agents.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0",
+    "better-sqlite3": "^11.5.0",
+    "dotenv": "^16.4.5"
+  }
+}
