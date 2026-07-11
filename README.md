@@ -10,9 +10,11 @@ each backed by the Claude API.
  
 - `package.json` — the project's dependency list and run commands
 - `.env.example` — template for your secret API key (copy to `.env`, never commit `.env`)
+- `src/db/schema.sql` — the database structure: `agents`, `tasks`, `ledger` tables
+- `src/db/db.js` — loads the schema and gives the rest of the app a database connection
+- `config/agent-template.json` — **public template** showing the shape of an agent definition, with placeholder values
+- `config/agents.local.json` — **your real roster** (gitignored — never committed). Copy the template here and fill in real values.
 - `src/agents/` — will hold the Manager and worker agent logic
-- `src/db/` — will hold the database schema and setup
-- `src/config/` — will hold shared settings
 
 ## Setup (run this on your own machine)
  
