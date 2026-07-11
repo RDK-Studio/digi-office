@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import { createInterface } from 'node:readline/promises';
+import { stdin, stdout } from 'node:process';
 import db from './db/db.js';
 import { loadAgentConfig } from './agents/agentConfig.js';
 import { syncAgentsToDb } from './agents/syncAgents.js';
@@ -11,14 +13,54 @@ const insertTask = db.prepare(`
   VALUES (@department, @assigned_to, @title, @description, @status)
 `);
 
-const completeTask = db.prepare(`
-  UPDATE tasks SET status = 'done', updated_at = datetime('now') WHERE id = ?
+const setTaskStatus = db.prepare(`
+  UPDATE tasks SET status = ?, updated_at = datetime('now') WHERE id = ?
 `);
 
 const WORKER_HANDLERS = {
   'researcher-1': findGigLeads,
   'researcher-2': planSideHustles
 };
+
+async function runAssignment(assignment, byId, rl) {
+  const workerId = assignment.worker;
+  const handler = WORKER_HANDLERS[workerId];
+  const worker = byId[workerId];
+
+  if (!handler || !worker) {
+    console.log(`Main Assistant: I tried to route this to "${workerId}", but that worker isn't set up yet.\n`);
+    return;
+  }
+
+  console.log(`Main Assistant: Assigning to ${worker.name} — "${assignment.task_title}"\n`);
+
+  const taskResult = insertTask.run({
+    department: assignment.department,
+    assigned_to: workerId,
+    title: assignment.task_title,
+    description: assignment.task_description,
+    status: 'in-progress'
+  });
+  const taskId = taskResult.lastInsertRowid;
+
+  const output = await handler(worker, assignment.task_description);
+
+  setTaskStatus.run('awaiting-approval', taskId);
+
+  console.log(`${worker.name}: Here's what I found —\n`);
+  console.log(output);
+  console.log();
+
+  const answer = (await rl.question(`Approve this result? (y/n) `)).trim().toLowerCase();
+
+  if (answer === 'y' || answer === 'yes') {
+    setTaskStatus.run('done', taskId);
+    console.log(`Marked task #${taskId} as done.\n`);
+  } else {
+    setTaskStatus.run('rejected', taskId);
+    console.log(`Marked task #${taskId} as rejected — it'll stay in the database for reference, but won't count as completed.\n`);
+  }
+}
 
 async function main() {
   const userRequest = process.argv.slice(2).join(' ') || 'Find me some freelance gigs this week.';
@@ -30,38 +72,22 @@ async function main() {
 
   console.log(`You: ${userRequest}\n`);
 
-  const classification = await classifyRequest(userRequest, mainAssistant);
+  const { assignments, reason } = await classifyRequest(userRequest, mainAssistant);
 
-  if (classification.department !== 'research' || !classification.worker) {
-    console.log(`Main Assistant: I can't route this yet — ${classification.reason ?? 'no matching worker.'}`);
+  if (assignments.length === 0) {
+    console.log(`Main Assistant: I can't route this yet — ${reason ?? 'no matching worker.'}`);
     return;
   }
 
-  const workerId = classification.worker;
-  const handler = WORKER_HANDLERS[workerId];
-  const worker = byId[workerId];
+  const rl = createInterface({ input: stdin, output: stdout });
 
-  if (!handler || !worker) {
-    console.log(`Main Assistant: I tried to route this to "${workerId}", but that worker isn't set up yet.`);
-    return;
+  try {
+    for (const assignment of assignments) {
+      await runAssignment(assignment, byId, rl);
+    }
+  } finally {
+    rl.close();
   }
-
-  console.log(`Main Assistant: Assigning this to ${worker.name} — "${classification.task_title}"\n`);
-
-  const taskResult = insertTask.run({
-    department: classification.department,
-    assigned_to: workerId,
-    title: classification.task_title,
-    description: classification.task_description,
-    status: 'in-progress'
-  });
-
-  const output = await handler(worker, classification.task_description);
-
-  completeTask.run(taskResult.lastInsertRowid);
-
-  console.log(`${worker.name}: Here's what I found —\n`);
-  console.log(output);
 }
 
 main().catch((err) => {

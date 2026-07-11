@@ -16,16 +16,19 @@ export async function classifyRequest(userRequest, mainAssistantConfig) {
 
   const response = await client.messages.create({
     model: mainAssistantConfig.model_tier,
-    max_tokens: 300,
+    max_tokens: 500,
     system: `${mainAssistantConfig.system_prompt}
 
 Workers currently available:
 ${workerList}
 
-Respond with ONLY a JSON object, no other text:
-- If the request fits one of the available workers: {"department": "research", "worker": "researcher-1", "task_title": "short title", "task_description": "one sentence"}
-- If it doesn't fit any available worker: {"department": null, "worker": null, "reason": "short explanation"}
-- If the request genuinely needs both workers (e.g. "find me gigs AND brainstorm side hustles"), pick the single best-fitting worker for now and note the rest in task_description — routing to multiple workers isn't supported yet.`,
+Respond with ONLY a JSON object, no other text, in this shape:
+{"assignments": [{"department": "research", "worker": "researcher-1", "task_title": "short title", "task_description": "one sentence"}], "reason": null}
+
+Rules:
+- A request can need MORE THAN ONE worker (e.g. "find me gigs and also brainstorm side hustles" needs both researcher-1 and researcher-2). Include one object per worker needed, each with its own task_title/task_description scoped to just that worker's part of the request.
+- If nothing fits any available worker, return {"assignments": [], "reason": "short explanation"}.
+- Never invent a worker id that isn't in the list above.`,
     messages: [{ role: 'user', content: userRequest }]
   });
 
@@ -34,5 +37,7 @@ Respond with ONLY a JSON object, no other text:
     throw new Error('Main Assistant did not return a text response.');
   }
 
-  return JSON.parse(stripCodeFences(textBlock.text));
+  const parsed = JSON.parse(stripCodeFences(textBlock.text));
+
+  return { assignments: parsed.assignments ?? [], reason: parsed.reason ?? null };
 }
