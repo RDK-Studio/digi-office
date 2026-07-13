@@ -23,6 +23,10 @@ const setTaskStatus = db.prepare(`
 
 const getTask = db.prepare(`SELECT * FROM tasks WHERE id = ?`);
 
+const getLatestTaskForAgent = db.prepare(`
+  SELECT status FROM tasks WHERE assigned_to = ? ORDER BY id DESC LIMIT 1
+`);
+
 const WORKER_HANDLERS = {
   'researcher-1': findGigLeads,
   'researcher-2': planSideHustles
@@ -92,6 +96,24 @@ app.post('/api/request', async (req, res) => {
     console.error('Error handling /api/request:', err);
     res.status(500).json({ error: err.message });
   }
+});
+
+app.get('/api/agents/status', (req, res) => {
+  const workers = agents.filter((a) => a.role === 'worker');
+
+  const statuses = workers.map((agent) => {
+    const latest = getLatestTaskForAgent.get(agent.id);
+
+    let state = 'idle';
+    if (latest) {
+      if (latest.status === 'in-progress') state = 'working';
+      else if (latest.status === 'awaiting-approval') state = 'reporting';
+    }
+
+    return { agentId: agent.id, state };
+  });
+
+  res.json({ agents: statuses });
 });
 
 app.post('/api/tasks/:id/approve', (req, res) => {
