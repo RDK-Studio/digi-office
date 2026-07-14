@@ -14,6 +14,18 @@ const PORT = process.env.PORT || 3001;
 const app = express();
 app.use(express.json());
 
+const AUTH_TOKEN = process.env.SERVER_AUTH_TOKEN;
+
+app.use((req, res, next) => {
+  if (!AUTH_TOKEN) return next();
+
+  const providedToken = req.headers['x-api-key'];
+  if (providedToken !== AUTH_TOKEN) {
+    return res.status(401).json({ error: 'Unauthorized — missing or invalid X-API-Key header.' });
+  }
+  next();
+});
+
 const insertTask = db.prepare(`
   INSERT INTO tasks (department, assigned_to, title, description, status)
   VALUES (@department, @assigned_to, @title, @description, @status)
