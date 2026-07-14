@@ -6,6 +6,7 @@ import { syncAgentsToDb } from './agents/syncAgents.js';
 import { classifyRequest } from './agents/mainAssistant.js';
 import { findGigLeads } from './agents/researcher.js';
 import { planSideHustles } from './agents/sideHustlePlanner.js';
+import { helpWithProject } from './agents/devAssistant.js';
 
 const PORT = process.env.PORT || 3001;
 
@@ -29,7 +30,8 @@ const getLatestTaskForAgent = db.prepare(`
 
 const WORKER_HANDLERS = {
   'researcher-1': findGigLeads,
-  'researcher-2': planSideHustles
+  'researcher-2': planSideHustles,
+  'dev-assistant-1': helpWithProject
 };
 
 const { agents, byId } = loadAgentConfig();

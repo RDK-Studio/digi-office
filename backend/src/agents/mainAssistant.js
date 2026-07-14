@@ -8,7 +8,8 @@ function stripCodeFences(text) {
 
 const WORKERS_AVAILABLE = [
   { id: 'researcher-1', department: 'research', job: 'finds and scores freelance/gig leads matching the user\'s skills' },
-  { id: 'researcher-2', department: 'research', job: 'brainstorms new side-hustle ideas and writes short plans for the best ones' }
+  { id: 'researcher-2', department: 'research', job: 'brainstorms new side-hustle ideas and writes short plans for the best ones' },
+  { id: 'dev-assistant-1', department: 'dev-support', job: 'reads the user\'s own project files (code, config) to help debug, review, or explain them' }
 ];
 
 export async function classifyRequest(userRequest, mainAssistantConfig) {
