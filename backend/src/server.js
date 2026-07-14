@@ -7,6 +7,7 @@ import { classifyRequest } from './agents/mainAssistant.js';
 import { findGigLeads } from './agents/researcher.js';
 import { planSideHustles } from './agents/sideHustlePlanner.js';
 import { helpWithProject } from './agents/devAssistant.js';
+import { summarizeDepartment } from './agents/deptManager.js';
 
 const PORT = process.env.PORT || 3001;
 
@@ -19,7 +20,7 @@ const insertTask = db.prepare(`
 `);
 
 const setTaskStatus = db.prepare(`
-  UPDATE tasks SET status = ?, updated_at = datetime('now') WHERE id = ?
+  UPDATE tasks SET status = 'awaiting-approval', output = ?, updated_at = datetime('now') WHERE id = ?
 `);
 
 const getTask = db.prepare(`SELECT * FROM tasks WHERE id = ?`);
@@ -53,15 +54,38 @@ app.post('/api/request', async (req, res) => {
   }
 
   try {
-    const { assignments, reason } = await classifyRequest(message, mainAssistant);
+    const classification = await classifyRequest(message, mainAssistant);
 
-    if (assignments.length === 0) {
-      return res.json({ results: [], reason: reason ?? 'No matching worker for this request.' });
+    if (classification.type === 'status_query') {
+      const deptManagerId = `${classification.department}-dept-manager`;
+      const deptManager = byId[deptManagerId];
+
+      if (!deptManager) {
+        return res.json({ results: [], reason: `No department manager set up for "${classification.department}" yet.` });
+      }
+
+      const summary = await summarizeDepartment(deptManager, classification.department);
+
+      return res.json({
+        results: [{
+          taskId: 0,
+          workerId: deptManagerId,
+          workerName: deptManager.name,
+          title: `Status: ${classification.department}`,
+          output: summary,
+          status: 'info'
+        }],
+        reason: null
+      });
+    }
+
+    if (classification.type !== 'task' || classification.assignments.length === 0) {
+      return res.json({ results: [], reason: classification.reason ?? 'No matching worker for this request.' });
     }
 
     const results = [];
 
-    for (const assignment of assignments) {
+    for (const assignment of classification.assignments) {
       const workerId = assignment.worker;
       const handler = WORKER_HANDLERS[workerId];
       const worker = byId[workerId];
@@ -81,7 +105,7 @@ app.post('/api/request', async (req, res) => {
       const taskId = taskResult.lastInsertRowid;
 
       const output = await handler(worker, assignment.task_description);
-      setTaskStatus.run('awaiting-approval', taskId);
+      completeTaskWithOutput.run(output, taskId);
 
       results.push({
         taskId,

@@ -15,4 +15,9 @@ const db = new Database(join(__dirname, 'digi-office.db'));
 const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf-8');
 db.exec(schema);
 
+const taskColumns = db.prepare("PRAGMA table_info(tasks)").all().map((c) => c.name);
+if (!taskColumns.includes('output')) {
+  db.exec('ALTER TABLE tasks ADD COLUMN output TEXT');
+}
+
 export default db;

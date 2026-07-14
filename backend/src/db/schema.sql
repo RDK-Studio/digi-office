@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   department    TEXT NOT NULL,           -- 'research' | 'dev-support' | 'trading'
   assigned_to   TEXT REFERENCES agents(id),
   title         TEXT NOT NULL,
-  description   TEXT,
+  description   TEXT,  -- the worker's actual result text, saved so Dept Managers can summarize history
   status        TEXT NOT NULL DEFAULT 'backlog',  -- 'backlog' | 'assigned' | 'in-progress' | 'awaiting-approval' | 'done' | 'rejected' | 'error'
   priority      TEXT NOT NULL DEFAULT 'normal',   -- 'low' | 'normal' | 'high'
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),

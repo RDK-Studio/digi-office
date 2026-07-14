@@ -7,6 +7,8 @@ import { syncAgentsToDb } from './agents/syncAgents.js';
 import { classifyRequest } from './agents/mainAssistant.js';
 import { findGigLeads } from './agents/researcher.js';
 import { planSideHustles } from './agents/sideHustlePlanner.js';
+import { helpWithProject } from './agents/devAssistant.js';
+import { summarizeDepartment } from './agents/deptManager.js';
 
 const insertTask = db.prepare(`
   INSERT INTO tasks (department, assigned_to, title, description, status)
@@ -17,9 +19,14 @@ const setTaskStatus = db.prepare(`
   UPDATE tasks SET status = ?, updated_at = datetime('now') WHERE id = ?
 `);
 
+const completeTaskWithOutput = db.prepare(`
+  UPDATE tasks SET status = 'awaiting-approval', output = ?, updated_at = datetime('now') WHERE id = ?
+`);
+
 const WORKER_HANDLERS = {
   'researcher-1': findGigLeads,
-  'researcher-2': planSideHustles
+  'researcher-2': planSideHustles,
+  'dev-assistant-1': helpWithProject
 };
 
 async function runAssignment(assignment, byId, rl) {
@@ -44,8 +51,7 @@ async function runAssignment(assignment, byId, rl) {
   const taskId = taskResult.lastInsertRowid;
 
   const output = await handler(worker, assignment.task_description);
-
-  setTaskStatus.run('awaiting-approval', taskId);
+  completeTaskWithOutput.run(output, taskId);
 
   console.log(`${worker.name}: Here's what I found —\n`);
   console.log(output);
@@ -72,17 +78,31 @@ async function main() {
 
   console.log(`You: ${userRequest}\n`);
 
-  const { assignments, reason } = await classifyRequest(userRequest, mainAssistant);
+  const classification = await classifyRequest(userRequest, mainAssistant);
 
-  if (assignments.length === 0) {
-    console.log(`Main Assistant: I can't route this yet — ${reason ?? 'no matching worker.'}`);
+  if (classification.type === 'status_query') {
+    const deptManagerId = `${classification.department}-dept-manager`;
+    const deptManager = byId[deptManagerId];
+
+    if (!deptManager) {
+      console.log(`Main Assistant: No department manager set up for "${classification.department}" yet.`);
+      return;
+    }
+
+    const summary = await summarizeDepartment(deptManager, classification.department);
+    console.log(`${deptManager.name}: ${summary}`);
+    return;
+  }
+
+  if (classification.type !== 'task' || classification.assignments.length === 0) {
+    console.log(`Main Assistant: I can't route this yet — ${classification.reason ?? 'no matching worker.'}`);
     return;
   }
 
   const rl = createInterface({ input: stdin, output: stdout });
 
   try {
-    for (const assignment of assignments) {
+    for (const assignment of classification.assignments) {
       await runAssignment(assignment, byId, rl);
     }
   } finally {
